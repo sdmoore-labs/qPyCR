@@ -12,7 +12,18 @@ A Python package for quantitative PCR (qPCR) analysis using a recursive PCR mode
 
 ## Installation
 
+### From GitHub (Current)
 ```bash
+# Install directly from GitHub
+pip install git+https://github.com/sdmoore-labs/qpycr.git
+
+# Or install in development mode for local changes
+pip install -e git+https://github.com/sdmoore-labs/qpycr.git#egg=qpycr
+```
+
+### From PyPI (Coming Soon)
+```bash
+# Will be available once published to PyPI
 pip install qpycr
 ```
 
