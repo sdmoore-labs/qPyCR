@@ -1,0 +1,10 @@
+# Core dependencies for qPyCR
+numpy>=1.21.0
+pandas>=1.3.0
+matplotlib>=3.5.0
+scipy>=1.7.0
+
+# Optional dependencies for enhanced functionality
+# seaborn>=0.11.0  # For advanced plotting
+# plotly>=5.0.0    # For interactive plots
+# jupyter>=1.0.0   # For notebook support
