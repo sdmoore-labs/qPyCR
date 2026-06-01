@@ -47,6 +47,8 @@ Is also generates the max/KD ratio for reaction performance evaluation described
 > Peer J. Oct 24:13:e20241. doi: 10.7717/peerj.20241.
 
 ## Citation
+Modifications or alternative implementations of this software or its deign should include the above references as well as : 
+
 Manuscript pending. If you use this software, please cite the repository for now:
 
 - qPyCR (repository): https://github.com/sdmoore-labs/qpycr

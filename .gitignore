@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+*.so
+
+# Jupyter / Colab
+.ipynb_checkpoints/
+
+# Virtual environments (do not commit)
+venv/
+.venv/
+env/
+qpycr_pypi_env/
+
+# Secrets / local config
+.env
+.env.*
+
+# Analysis outputs (regenerated each run)
+outputs/
+
+# PyPI / packaging build artifacts
+dist/
+build/
+*.egg-info/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor (optional; safe to keep)
+.idea/
+.vscode/
+*.swp
+*~
