@@ -1,6 +1,6 @@
 # qPyCR
 
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/sdmoore-labs/qPyCR/HEAD?labpath=notebooks%2FqPyCR_v_latest_060126.ipynb)
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/sdmoore-labs/qPyCR/HEAD?labpath=notebooks%2FqPyCR_v_current.ipynb)
 
 qPyCR is a notebook‑first qPCR analysis workflow that implements global data fitting using a recursive PCR model.  
 It accepts raw, unadjusted CSV data and produces Cq, Seed, Max, KD, and Max/KD outputs.
