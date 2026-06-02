@@ -10,7 +10,8 @@ It accepts raw, unadjusted CSV data and produces Cq, Seed, Max, KD, and Max/KD o
 This project is designed to run as a Jupyter notebook. Choose one:
 
 **Option 1: Binder (no install)**  
-Click the badge above to launch the notebook in your browser — no setup required.
+Click the badge above to launch the notebook in your browser — no setup required.  
+Use `../examples/test_data.csv` as the input path. Outputs are saved to `notebooks/outputs/` — download before closing the session.
 
 **Option 2: Google Colab**  
 Upload the notebook from `notebooks/` to [Google Colab](https://colab.research.google.com/).
