@@ -14,8 +14,8 @@ It accepts raw, unadjusted CSV data and produces Cq, Seed, Max, KD, and Max/KD o
 <br>
 
 <p align="center">
-  <img src="images/Cq_and_Threshold.png" alt="Cq analysis plot" width="48%" style="display:inline-block;">
-  <img src="images/Global_Fitting.png" alt="Global fitting plot" width="48%" style="display:inline-block;">
+  <img src="images/Cq_Threshold_2.png" alt="Cq analysis plot" width="48%" style="display:inline-block;">
+  <img src="images/Global_Fitting_2.png" alt="Global fitting plot" width="48%" style="display:inline-block;">
 </p>
 
 
