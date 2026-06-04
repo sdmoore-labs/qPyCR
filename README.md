@@ -5,6 +5,20 @@
 qPyCR is a notebook‑first qPCR analysis workflow that implements global data fitting using a recursive PCR model.  
 It accepts raw, unadjusted CSV data and produces Cq, Seed, Max, KD, and Max/KD outputs.
 
+### Example Outputs
+
+<p align="center">
+  <img src="images/Readme_Output.png" alt="Output csv viewed in spreadsheet" width="500">
+</p>
+
+<br>
+
+<p align="center">
+  <img src="images/Cq_and_Threshold.png" alt="Cq analysis plot" width="48%" style="display:inline-block;">
+  <img src="images/Global_Fitting.png" alt="Global fitting plot" width="48%" style="display:inline-block;">
+</p>
+
+
 ## Recommended Use
 
 This project is designed to run as a Jupyter notebook. Choose one:
@@ -22,9 +36,10 @@ Clone the repo and run `pip install -r requirements.txt`, then open the notebook
 ### Running the Analysis
 1. Run cells in order (Cell‑0 → Cell‑11).
 2. Use `-e` for evaluation outputs or `-d` for full debug outputs.
+3. In some environments, 'Run All' may hang after providing input selections; you can click 'Run' repeatedly to step through the remaining cells.
 
 ## Inputs
-CSV format with a `Cycle` column and one or more sample columns.
+CSV format with a `Cycle` column and one or more sample columns containing qPCR data for each cycle.
 
 ## Outputs
 Cell‑11 generates the final report:
@@ -38,6 +53,7 @@ qPyCR/
 ├── notebooks/      # Jupyter notebooks (run these)
 ├── cells/          # Individual cell scripts (for inspection/modification)
 ├── examples/       # Example datasets
+├── images/         # Images for Readme
 └── requirements.txt
 ```
 
@@ -53,7 +69,7 @@ Is also generates the max/KD ratio for reaction performance evaluation described
 > Peer J. Oct 24:13:e20241. doi: 10.7717/peerj.20241.
 
 ## Citation
-Manuscript pending. If you use this software, please cite the repository for now:
+Manuscript pending. If you use this software, please cite this repository for now:
 
 - qPyCR (repository): https://github.com/sdmoore-labs/qpycr
 
