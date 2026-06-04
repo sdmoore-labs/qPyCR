@@ -66,7 +66,7 @@ This software implements and extends the use of the recursive PCR model describe
 Is also generates the max/KD ratio for reaction performance evaluation described in:
 
 > Moore SD (2025) Thermal-bias PCR: generation of amplicon libraries without degenerate primer interference.
-> Peer J. Oct 24:13:e20241. doi: 10.7717/peerj.20241.
+> Peer J. Oct 24:13:e20241. https://doi.org/10.7717/peerj.20241
 
 ## Citation
 Manuscript pending. If you use this software, please cite this repository for now:
