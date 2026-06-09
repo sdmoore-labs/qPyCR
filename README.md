@@ -38,6 +38,30 @@ Clone the repo and run `pip install -r requirements.txt`, then open the notebook
 2. Use `-e` for evaluation outputs or `-d` for full debug outputs.
 3. In some environments, 'Run All' may hang after providing input selections; you can click 'Run' repeatedly to step through the remaining cells.
 
+## Alternative: Local Install via pip
+
+For command-line use without a notebook environment:
+
+```bash
+pip install qpycr
+```
+
+**Run analysis from the command line:**
+```bash
+qpycr your_data.csv              # Basic analysis
+qpycr your_data.csv -e           # With evaluation outputs
+qpycr your_data.csv -d           # With debug outputs
+qpycr your_data.csv -o results/  # Custom output directory
+```
+
+**Or use in Python scripts:**
+```python
+from qpycr import analyze
+results = analyze("your_data.csv")
+```
+
+Results are saved to the `outputs/` folder (or your specified directory).
+
 ## Inputs
 CSV format with a `Cycle` column and one or more sample columns containing qPCR data for each cycle.
 
