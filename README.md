@@ -69,7 +69,10 @@ Results are saved to the `outputs/` folder (or your specified directory).
 
 ## Inputs
 
-CSV format with a `Cycle` column and one or more sample columns containing qPCR data for each cycle.
+Supported formats:
+- **CSV**: `Cycle` column + sample columns with fluorescence data for each cycle
+- **RDES (.tsv)**: Real-time PCR Data Essential Spreadsheet format (tab-separated)
+- **RDML (.rdml)**: Real-time PCR Data Markup Language (XML/ZIP format)
 
 ## Outputs
 
