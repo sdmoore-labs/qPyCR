@@ -6,6 +6,7 @@ Usage:
     qpycr data.csv -e             # With evaluation outputs
     qpycr data.csv -d             # With debug outputs
     qpycr data.csv -o results/    # Custom output directory
+    qpycr data.csv --no-baseline  # Skip baseline correction (for pre-adjusted data)
 """
 
 import argparse
@@ -59,6 +60,13 @@ def main():
     )
     
     parser.add_argument(
+        '--no-baseline',
+        action='store_true',
+        dest='no_baseline',
+        help='Skip baseline correction (use when providing pre-adjusted data)'
+    )
+    
+    parser.add_argument(
         '-v', '--version',
         action='version',
         version=f'qpycr {__version__}'
@@ -77,7 +85,8 @@ def main():
             eval_flag=args.eval_flag,
             debug_flag=args.debug_flag,
             output_dir=args.output_dir,
-            verbose=not args.quiet
+            verbose=not args.quiet,
+            adjust_baseline=not args.no_baseline
         )
         
         if results is not None:

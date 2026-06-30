@@ -30,7 +30,8 @@ class QPCRAnalyzer:
     """
     
     def __init__(self, eval_flag: bool = False, debug_flag: bool = False, 
-                 output_dir: str = "outputs", verbose: bool = True):
+                 output_dir: str = "outputs", verbose: bool = True,
+                 adjust_baseline: bool = True):
         """
         Initialize the QPCR analyzer.
         
@@ -39,12 +40,15 @@ class QPCRAnalyzer:
             debug_flag: Enable debug outputs (full intermediate files + plots)
             output_dir: Directory for output files
             verbose: Print progress messages
+            adjust_baseline: Apply baseline correction (default True).
+                           Set to False when providing pre-adjusted data.
         """
         self.eval_flag = eval_flag
         self.debug_flag = debug_flag
         self.debug_display_flag = debug_flag
         self.output_dir = output_dir
         self.verbose = verbose
+        self.adjust_baseline = adjust_baseline
         
         # Create output directory
         os.makedirs(self.output_dir, exist_ok=True)
@@ -166,8 +170,23 @@ class QPCRAnalyzer:
         self.amplification_flags = {}
         self.initial_backgrounds = {}
         
+        # Check if baseline adjustment should be skipped
+        if not self.adjust_baseline:
+            if self.verbose:
+                print("Baseline adjustment BYPASSED (adjust_baseline=False)")
+                print("Data passed through unchanged. Use this when providing pre-adjusted data.")
+            for col in self.columns_to_fit:
+                self.initial_backgrounds[col] = 0.0
+                self.adjustment_types[col] = 'none'
+                # Check for amplification (still useful even for pre-adjusted data)
+                data = self.df_adjusted[col].values
+                max_val = np.max(data)
+                min_val = np.min(data[:min(5, len(data) // 4)])
+                self.amplification_flags[col] = max_val > min_val * 2
+            return
+        
         for col in self.columns_to_fit:
-            data = self.df[col].values
+            data = self.df[col].values.astype(float)  # Ensure float dtype
             cycles = np.arange(1, len(data) + 1)
             
             # Simple baseline: use minimum of first few cycles
@@ -481,7 +500,7 @@ class QPCRAnalyzer:
 
 def analyze(file_path: Union[str, Path], eval_flag: bool = False, 
             debug_flag: bool = False, output_dir: str = "outputs",
-            verbose: bool = True) -> pd.DataFrame:
+            verbose: bool = True, adjust_baseline: bool = True) -> pd.DataFrame:
     """
     Convenience function to run qPCR analysis.
     
@@ -491,6 +510,8 @@ def analyze(file_path: Union[str, Path], eval_flag: bool = False,
         debug_flag: Enable debug outputs
         output_dir: Directory for output files
         verbose: Print progress messages
+        adjust_baseline: Apply baseline correction (default True).
+                        Set to False when providing pre-adjusted data.
         
     Returns:
         DataFrame containing final analysis results
@@ -498,11 +519,15 @@ def analyze(file_path: Union[str, Path], eval_flag: bool = False,
     Example:
         from qpycr import analyze
         results = analyze("my_qpcr_data.csv")
+        
+        # With pre-adjusted data:
+        results = analyze("pre_adjusted.csv", adjust_baseline=False)
     """
     analyzer = QPCRAnalyzer(
         eval_flag=eval_flag,
         debug_flag=debug_flag,
         output_dir=output_dir,
-        verbose=verbose
+        verbose=verbose,
+        adjust_baseline=adjust_baseline
     )
     return analyzer.analyze(file_path)

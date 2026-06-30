@@ -19,13 +19,26 @@ Usage:
     Python API:
         from qpycr import analyze
         results = analyze("data.csv")
+    
+    Import from RDML/RDES formats:
+        from qpycr import import_rdes, import_rdml
+        df = import_rdes("data.tsv")
+        df = import_rdml("data.rdml")  # uses built-in XML parsing
 """
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __author__ = "Sean D. Moore"
 __email__ = "sean.moore@ucf.edu"
 __license__ = "MIT"
 
 from .analyzer import analyze, QPCRAnalyzer
+from .importers import import_rdes, import_rdml, save_as_qpycr_csv
 
-__all__ = ["analyze", "QPCRAnalyzer", "__version__"]
+__all__ = [
+    "analyze", 
+    "QPCRAnalyzer", 
+    "import_rdes",
+    "import_rdml", 
+    "save_as_qpycr_csv",
+    "__version__"
+]
