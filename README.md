@@ -1,17 +1,22 @@
 # qPyCR
 
-[Binder](https://mybinder.org/v2/gh/sdmoore-labs/qPyCR/HEAD?labpath=notebooks%2FqPyCR_v_current.ipynb)
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/sdmoore-labs/qPyCR/HEAD?labpath=notebooks%2FqPyCR_v_current.ipynb)
 
 qPyCR is a notebook‑first qPCR analysis workflow that implements global data fitting using a recursive PCR model.  
 It accepts raw, unadjusted CSV, RDES (TSV), or RDML data and produces Cq, Seed, Max, KD, and Max/KD outputs.
 
 ### Example Outputs
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/sdmoore-labs/qPyCR/main/images/Readme_Output.png" alt="Output csv viewed in spreadsheet" width="500">
+</p>
 
+<br>
 
-  
-
-
+<p align="center">
+  <img src="https://raw.githubusercontent.com/sdmoore-labs/qPyCR/main/images/Cq_Threshold_2.png" alt="Cq analysis plot" width="48%" style="display:inline-block;">
+  <img src="https://raw.githubusercontent.com/sdmoore-labs/qPyCR/main/images/Global_Fitting_2.png" alt="Global fitting plot" width="48%" style="display:inline-block;">
+</p>
 
 
 ## Recommended Use
