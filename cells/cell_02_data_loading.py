@@ -3,6 +3,7 @@
 """
 Purpose:
 - Load raw qPCR data from the specified file path (raw data preferred, not machine-corrected input).
+- Support multiple input formats: CSV (default), RDES (.tsv), and RDML (.rdml).
 - Validate the data format, headers, and data entries.
 - Identify columns containing fluorescence data, excluding metadata columns.
 - Set the DataFrame index to the 'Cycle' column (if present) or adjust to start at 1.
@@ -12,6 +13,7 @@ Purpose:
 
 Inputs:
 - file_path: String, path to the qPCR data file (from Cell-1).
+- file_format: String, detected format - 'csv', 'rdes', or 'rdml' (from Cell-1).
 - eval_flag: True or False, indicating Evaluation mode (from Cell-1).
 - debug_flag: True or False, indicating Debug mode (from Cell-1).
 - debug_display_flag: True or False, indicating Debug plot display (from Cell-1).
@@ -31,13 +33,190 @@ import datetime
 
 # Verify inputs from Cell-1
 try:
-    file_path, debug_flag, debug_display_flag, eval_flag, output_dir
+    file_path, file_format, debug_flag, debug_display_flag, eval_flag, output_dir
 except NameError:
-    raise NameError("Required variables (file_path, debug_flag, debug_display_flag, eval_flag, output_dir) not defined. Please run Cell-1 first.")
+    raise NameError("Required variables (file_path, file_format, debug_flag, debug_display_flag, eval_flag, output_dir) not defined. Please run Cell-1 first.")
 
-# Load the data
+# ============ Format-specific loading functions ============
+
+def load_csv_data(file_path):
+    """Load standard CSV format (Cycle column + sample columns)."""
+    return pd.read_csv(file_path)
+
+def load_rdes_data(file_path):
+    """
+    Load RDES (Real-time PCR Data Essential Spreadsheet) format.
+    RDES has wells/samples as rows and cycles as columns.
+    This function transposes to qPyCR format (cycles as rows, samples as columns).
+    """
+    print("Loading RDES format...")
+    rdes_df = pd.read_csv(file_path, sep='\t')
+    
+    # Identify metadata columns vs cycle columns
+    metadata_cols = []
+    cycle_cols = []
+    
+    for col in rdes_df.columns:
+        try:
+            cycle_num = int(col)
+            cycle_cols.append((col, cycle_num))
+        except (ValueError, TypeError):
+            metadata_cols.append(col)
+    
+    if not cycle_cols:
+        raise ValueError("No cycle columns found in RDES file. Expected numeric column headers for cycles.")
+    
+    # Sort cycle columns by cycle number
+    cycle_cols.sort(key=lambda x: x[1])
+    cycle_col_names = [c[0] for c in cycle_cols]
+    cycle_numbers = [c[1] for c in cycle_cols]
+    
+    # Determine sample names (use Well column if Sample names are duplicated)
+    if 'Sample' in rdes_df.columns:
+        if rdes_df['Sample'].duplicated().any() and 'Well' in rdes_df.columns:
+            sample_names = [f"{s}_{w}" for s, w in zip(rdes_df['Sample'], rdes_df['Well'])]
+        else:
+            sample_names = rdes_df['Sample'].values
+    elif 'Well' in rdes_df.columns:
+        sample_names = rdes_df['Well'].values
+    else:
+        sample_names = [f"Sample_{i}" for i in range(len(rdes_df))]
+    
+    # Extract fluorescence data and transpose (samples as rows → samples as columns)
+    fluor_data = rdes_df[cycle_col_names].values.T
+    
+    # Create output DataFrame with cycles as rows
+    output_df = pd.DataFrame(fluor_data, index=cycle_numbers, columns=sample_names)
+    output_df.index.name = "Cycle"
+    
+    print(f"RDES import: {len(output_df)} cycles, {len(output_df.columns)} samples")
+    print(f"Cycle range: {min(cycle_numbers)} to {max(cycle_numbers)}")
+    
+    # Reset index to make Cycle a column (for consistency with CSV loading)
+    output_df = output_df.reset_index()
+    
+    return output_df
+
+def load_rdml_data(file_path):
+    """
+    Load RDML (Real-time PCR Data Markup Language) format.
+    Parses the RDML ZIP/XML structure directly to extract raw fluorescence data.
+    
+    Column names use the well/react ID (unique per reaction) rather than 
+    sample names (which may have replicates with the same name).
+    """
+    print("Loading RDML format...")
+    
+    import zipfile
+    import xml.etree.ElementTree as ET
+    
+    # RDML namespace
+    ns = {'rdml': 'http://www.rdml.org'}
+    
+    wells_data = {}
+    max_cycles = 0
+    min_cycles = float('inf')
+    
+    try:
+        with zipfile.ZipFile(file_path, 'r') as zf:
+            xml_content = zf.read('rdml_data.xml')
+            root = ET.fromstring(xml_content)
+            
+            # Find experiments
+            experiments = root.findall('rdml:experiment', ns)
+            if not experiments:
+                raise ValueError("No experiments found in RDML file.")
+            
+            print(f"Found {len(experiments)} experiment(s)")
+            
+            for exp in experiments:
+                exp_id = exp.get('id', 'unknown')
+                
+                # Find runs in experiment
+                runs = exp.findall('rdml:run', ns)
+                print(f"Found {len(runs)} run(s) in experiment '{exp_id}'")
+                
+                for run in runs:
+                    # Find reacts (reactions/wells)
+                    reacts = run.findall('rdml:react', ns)
+                    print(f"Found {len(reacts)} reactions in run")
+                    
+                    for react in reacts:
+                        react_id = react.get('id', 'unknown')
+                        
+                        # Find data elements (may have multiple if multiplexed)
+                        datas = react.findall('rdml:data', ns)
+                        
+                        for data in datas:
+                            # Get target reference (for multiplexed wells)
+                            tar_elem = data.find('rdml:tar', ns)
+                            target = tar_elem.get('id') if tar_elem is not None else ''
+                            
+                            # Use react_id as column name (unique well identifier)
+                            # Append target only if multiplexed (multiple targets per well)
+                            if len(datas) > 1 and target:
+                                well_name = f"{react_id}_{target}"
+                            else:
+                                well_name = react_id
+                            
+                            # Get amplification data points
+                            adps = data.findall('rdml:adp', ns)
+                            
+                            cycles = []
+                            fluor = []
+                            for adp in adps:
+                                cyc_elem = adp.find('rdml:cyc', ns)
+                                fluor_elem = adp.find('rdml:fluor', ns)
+                                
+                                if cyc_elem is not None and fluor_elem is not None:
+                                    try:
+                                        cyc_val = int(float(cyc_elem.text))
+                                        fluor_val = float(fluor_elem.text)
+                                        cycles.append(cyc_val)
+                                        fluor.append(fluor_val)
+                                    except (ValueError, TypeError):
+                                        continue
+                            
+                            if cycles:
+                                wells_data[well_name] = {'cycles': cycles, 'fluor': fluor}
+                                max_cycles = max(max_cycles, max(cycles))
+                                min_cycles = min(min_cycles, min(cycles))
+        
+    except zipfile.BadZipFile:
+        raise ValueError("Invalid RDML file. Expected ZIP format containing rdml_data.xml")
+    
+    if not wells_data:
+        raise ValueError("No fluorescence data found in RDML file.")
+    
+    # Build DataFrame - use actual cycle range from data
+    all_cycles = list(range(int(min_cycles), int(max_cycles) + 1))
+    output_df = pd.DataFrame(index=all_cycles)
+    output_df.index.name = "Cycle"
+    
+    for well_name, data in wells_data.items():
+        series = pd.Series(index=data['cycles'], data=data['fluor'])
+        output_df[well_name] = series.reindex(all_cycles)
+    
+    print(f"RDML import: {len(output_df)} cycles (range {min_cycles}-{max_cycles}), {len(output_df.columns)} wells")
+    print(f"Wells: {', '.join(list(output_df.columns)[:5])}{'...' if len(output_df.columns) > 5 else ''}")
+    
+    # Reset index to make Cycle a column
+    output_df = output_df.reset_index()
+    
+    return output_df
+
+# ============ Load data based on detected format ============
+
 try:
-    df = pd.read_csv(file_path)
+    if file_format == 'csv':
+        df = load_csv_data(file_path)
+    elif file_format == 'rdes':
+        df = load_rdes_data(file_path)
+    elif file_format == 'rdml':
+        df = load_rdml_data(file_path)
+    else:
+        print(f"Unknown format '{file_format}', attempting CSV load...")
+        df = load_csv_data(file_path)
 except FileNotFoundError:
     raise FileNotFoundError(f"Data file not found at {file_path}. Please check the file path and ensure it exists.")
 except Exception as e:
@@ -54,14 +233,22 @@ for col in df.columns:
         cycle_column = col
         break
 
+# Debug: show what columns we found
+print(f"DEBUG: Columns in loaded data: {list(df.columns)[:10]}{'...' if len(df.columns) > 10 else ''}")
+print(f"DEBUG: Cycle column found: {cycle_column}")
+
 if cycle_column is not None:
     try:
+        print(f"DEBUG: Cycle column values (first 5): {df[cycle_column].head().tolist()}")
         df[cycle_column] = pd.to_numeric(df[cycle_column], errors='coerce')
         if df[cycle_column].isna().any():
             raise ValueError(f"Cycle column '{cycle_column}' contains non-numeric values. Please clean the data.")
-        if df[cycle_column].min() != 1:
-            print(f"Warning: Cycle column '{cycle_column}' does not start at 1 (min={df[cycle_column].min()}). Adjusting cycles to start at 1.")
-            df[cycle_column] = df[cycle_column] - df[cycle_column].min() + 1
+        
+        # Preserve original cycle numbers from the data file
+        start_cycle = int(df[cycle_column].min())
+        end_cycle = int(df[cycle_column].max())
+        print(f"Note: Data uses cycles {start_cycle} to {end_cycle} (preserving original cycle numbers).")
+        
         df.set_index(cycle_column, inplace=True)
     except Exception as e:
         raise ValueError(f"Error setting index to Cycle column: {e}")
@@ -108,7 +295,10 @@ if not columns_to_fit:
 if df[columns_to_fit].isna().any().any():
     raise ValueError("Data contains missing values (NaN). Please clean the dataset or replace missing values.")
 
-# Preview: Print the first 5 rows and maximum fluorescence
+# Preview: Print cycle range and first 5 rows
+print(f"\n--- Data Summary ---")
+print(f"Cycle range: {df.index.min()} to {df.index.max()} ({len(df)} total cycles)")
+print(f"Samples: {len(columns_to_fit)}")
 print("\nFirst 5 rows of loaded data:")
 print(df[columns_to_fit].head().to_string(index=True))
 print("\nMaximum Fluorescence per Sample (Across All Rows):")
@@ -152,7 +342,7 @@ def plot_raw_data(df, columns, debug_flag=False, debug_display_flag=False, outpu
 
     if debug_flag:
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        input_base_name = os.path.basename(file_path).replace('.csv', '')
+        input_base_name = os.path.splitext(os.path.basename(file_path))[0]  # Handle any extension
         plot_path = os.path.join(output_dir, f'raw_data_plot--{input_base_name}--{timestamp}.png')
         plt.savefig(plot_path, bbox_inches='tight')
         print(f"Saved (Debug) raw data plot to {plot_path}")

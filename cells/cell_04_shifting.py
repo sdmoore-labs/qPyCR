@@ -96,8 +96,8 @@ if debug_flag and valid_columns:
     max_length = max(len(shifted_data[col]['prev']) for col in valid_columns) if valid_columns else 0
     shifted_df_data = {'Cycle': np.arange(2, max_length + 2)}  # Cycles start at 2
     for col in valid_columns:
-        prev = shifted_data[col]['prev']
-        current = shifted_data[col]['current']
+        prev = shifted_data[col]['prev'].astype(float)  # Ensure float for NaN padding
+        current = shifted_data[col]['current'].astype(float)
         prev_padded = np.pad(prev, (0, max_length - len(prev)), constant_values=np.nan)
         current_padded = np.pad(current, (0, max_length - len(current)), constant_values=np.nan)
         shifted_df_data[f"{col}_Prev"] = prev_padded

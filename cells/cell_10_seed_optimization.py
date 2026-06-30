@@ -233,42 +233,41 @@ print("\n=== Optimization Summary ===")
 print(report_df.to_string(index=False))
 
 # Step 2: Generate plots for each sample
-def plot_seed_optimization(col, max_val, KD, seed_guess, seed_optimized, observed, debug_flag=False, debug_display_flag=False, output_dir="outputs", file_path=""):
-    """Plot observed vs modeled data for seed optimization"""
+def plot_seed_optimization(col, max_val, KD, seed_guess, seed_optimized, observed, cycles, debug_flag=False, debug_display_flag=False, output_dir="outputs", file_path=""):
+    """Plot observed vs modeled data for seed optimization.
+    
+    Model line starts at cycle 0 (seed position) through max observed cycle.
+    Observed data is plotted at actual cycles (e.g., 3-40).
+    """
     if not debug_display_flag and not debug_flag:
         print(f"Debug output disabled. Skipping plot for {col}.")
         return
-        
-    n_cycles = len(observed)
-    cycles = np.arange(1, n_cycles + 1)
     
-    # Generate initial model sequence
-    initial_sequence = []
+    # Model starts at cycle 0, extends to max observed cycle
+    max_cycle = int(max(cycles))
+    model_cycles = np.arange(0, max_cycle + 1)  # 0, 1, 2, ..., max_cycle
+    
+    # Generate initial model sequence from cycle 0
+    initial_sequence = [seed_guess]  # Cycle 0 = seed
     prev = seed_guess
-    for i in range(n_cycles):
-        if i == 0:
-            current = pcr_model(seed_guess, max_val, KD)
-        else:
-            current = pcr_model(prev, max_val, KD)
+    for i in range(max_cycle):  # Generate cycles 1 through max_cycle
+        current = pcr_model(prev, max_val, KD)
         initial_sequence.append(current)
         prev = current
     
-    # Generate optimized model sequence
-    optimized_sequence = []
+    # Generate optimized model sequence from cycle 0
+    optimized_sequence = [seed_optimized]  # Cycle 0 = seed
     prev = seed_optimized
-    for i in range(n_cycles):
-        if i == 0:
-            current = pcr_model(seed_optimized, max_val, KD)
-        else:
-            current = pcr_model(prev, max_val, KD)
+    for i in range(max_cycle):  # Generate cycles 1 through max_cycle
+        current = pcr_model(prev, max_val, KD)
         optimized_sequence.append(current)
         prev = current
     
     # Create plot
     fig, ax = plt.subplots(figsize=(12, 8))
     plt.plot(cycles, observed, 'ko', label='Observed Data', markersize=4)
-    plt.plot(cycles, initial_sequence, 'b--', label=f'Initial Model (seed={seed_guess:.2e})', linewidth=2)
-    plt.plot(cycles, optimized_sequence, 'g--', label=f'Optimized Model (seed={seed_optimized:.2e})', linewidth=2)
+    plt.plot(model_cycles, initial_sequence, 'b--', label=f'Initial Model (seed={seed_guess:.2e})', linewidth=2)
+    plt.plot(model_cycles, optimized_sequence, 'g--', label=f'Optimized Model (seed={seed_optimized:.2e})', linewidth=2)
     plt.axhline(y=0, color='gray', linestyle='--', linewidth=0.5)
     plt.xlabel('Cycle')
     plt.ylabel('Fluorescence Value')
@@ -307,7 +306,8 @@ for col in valid_columns:
             seed_optimized = seed_guess
             
         observed = df_fine_tuned[col].values
-        plot_seed_optimization(col, max_val, KD, seed_guess, seed_optimized, observed, debug_flag, debug_display_flag, output_dir, file_path)
+        cycles = df_fine_tuned.index.values  # Use actual cycle numbers
+        plot_seed_optimization(col, max_val, KD, seed_guess, seed_optimized, observed, cycles, debug_flag, debug_display_flag, output_dir, file_path)
 
 # Step 3: Debug output: Save report to CSV (only valid samples)
 if debug_flag and report_data['Sample']:
@@ -346,20 +346,23 @@ def plot_global_fitting_models(seed_optimized_dict, fitted_params, df_fine_tuned
         if max_val is None or KD is None:
             continue
 
-        n_cycles = len(df_fine_tuned[col].values)
-        cycles = np.arange(1, n_cycles + 1)
+        observed_cycles = df_fine_tuned.index.values  # Actual observed cycle numbers (e.g., 3-40)
         observed = df_fine_tuned[col].values
-        modeled = []
+        
+        # Model starts at cycle 0, extends to max observed cycle
+        max_cycle = int(max(observed_cycles))
+        model_cycles = np.arange(0, max_cycle + 1)  # 0, 1, 2, ..., max_cycle
+        
+        # Generate model from cycle 0
+        modeled = [seed_opt]  # Cycle 0 = seed
         prev = seed_opt
-        for i in range(n_cycles):
-            if i == 0:
-                current = pcr_model(seed_opt, max_val, KD)
-            else:
-                current = pcr_model(prev, max_val, KD)
+        for i in range(max_cycle):  # Generate cycles 1 through max_cycle
+            current = pcr_model(prev, max_val, KD)
             modeled.append(current)
             prev = current
-        ax.plot(cycles, observed, 'ko', markersize=3, alpha=0.6, label=f"{col} Observed")
-        ax.plot(cycles, modeled, linewidth=2, alpha=0.9, label=f"{col} Model")
+        
+        ax.plot(observed_cycles, observed, 'ko', markersize=3, alpha=0.6, label=f"{col} Observed")
+        ax.plot(model_cycles, modeled, linewidth=2, alpha=0.9, label=f"{col} Model")
 
     ax.set_xlabel('Cycle')
     ax.set_ylabel('Fluorescence Value')
@@ -395,8 +398,11 @@ if (eval_flag or debug_flag):
 
 # Step 6 (Debug): Export optimized seed-modeled data
 if debug_flag and seed_optimized_dict:
-    cycles = np.arange(1, len(df_fine_tuned) + 1)
-    modeled_df = pd.DataFrame({'Cycle': cycles})
+    # Model starts at cycle 0, extends to max observed cycle
+    max_observed_cycle = int(max(df_fine_tuned.index.values))
+    model_cycles = np.arange(0, max_observed_cycle + 1)  # 0, 1, 2, ..., max_cycle
+    modeled_df = pd.DataFrame({'Cycle': model_cycles})
+    
     for col, seed_opt in seed_optimized_dict.items():
         if seed_opt is None:
             continue
@@ -404,13 +410,12 @@ if debug_flag and seed_optimized_dict:
         KD = fitted_params.get(col, {}).get('final_KD', None)
         if max_val is None or KD is None:
             continue
-        modeled = []
+        
+        # Generate model from cycle 0
+        modeled = [seed_opt]  # Cycle 0 = seed
         prev = seed_opt
-        for i in range(len(cycles)):
-            if i == 0:
-                current = pcr_model(seed_opt, max_val, KD)
-            else:
-                current = pcr_model(prev, max_val, KD)
+        for i in range(max_observed_cycle):  # Generate cycles 1 through max_cycle
+            current = pcr_model(prev, max_val, KD)
             modeled.append(current)
             prev = current
         modeled_df[col] = modeled

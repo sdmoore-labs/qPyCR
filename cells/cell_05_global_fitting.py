@@ -149,7 +149,7 @@ for col in columns_to_fit:
     }
     model_predictions[col] = {'initial': fitter.pcr_model(shifted_data[col]['prev'], max_val_init, KD_init)}
     # Populate adjusted_df with initial shifted data (will be overwritten for linear samples)
-    adjusted_df[col] = np.pad(shifted_data[col]['current'], (1, 0), mode='constant', constant_values=np.nan)  # Pad with NaN at cycle 1
+    adjusted_df[col] = np.pad(shifted_data[col]['current'].astype(float), (1, 0), mode='constant', constant_values=np.nan)  # Pad with NaN at cycle 1
 
 # Step 2: Conditional optimization based on adjustment_types
 if not ALLOW_FINE_TUNING:
@@ -179,7 +179,7 @@ else:
         if adj_type == 'exponential' and not ALLOW_EXPONENTIAL_FINE_TUNING:
             # Use original baseline-adjusted data for exponential (no further refinement needed)
             print(f"Using original baseline-adjusted data for exponential-adjusted sample {col}.")
-            adjusted_df[col] = np.pad(shifted_data[col]['current'], (1, 0), mode='constant', constant_values=np.nan)  # Pad with NaN at cycle 1
+            adjusted_df[col] = np.pad(shifted_data[col]['current'].astype(float), (1, 0), mode='constant', constant_values=np.nan)  # Pad with NaN at cycle 1
             # df_fine_tuned[col] already contains the baseline-adjusted data from Cell 3, no change needed
             max_val_final = fitted_params[col]['max_val']
             KD_final = fitted_params[col]['KD']
@@ -242,7 +242,7 @@ if (debug_flag or eval_flag) and valid_columns:
     export_path = os.path.join(output_dir, export_filename)
 
     export_df = df_fine_tuned[valid_columns].copy()
-    export_df.insert(0, 'Cycle', np.arange(1, len(export_df) + 1))
+    export_df.insert(0, 'Cycle', df_fine_tuned.index.values)  # Use actual cycle numbers from index
     export_df.to_csv(export_path, index=False)
     print(f"Saved (Debug/Evaluation) final adjusted data to {export_path}")
 
@@ -250,7 +250,7 @@ if (debug_flag or eval_flag) and valid_columns:
 if debug_display_flag:
     for col in valid_columns:
         if col in model_predictions and col in shifted_data:
-            cycles = np.arange(1, len(df_fine_tuned[col]) + 1)  # Use length of df_fine_tuned to ensure cycle 1 is included
+            cycles = df_fine_tuned.index.values  # Use actual cycle numbers from index
             plt.figure(figsize=(12, 8), constrained_layout=True)
             plt.plot(cycles, df_fine_tuned[col].values, label=f'{col} Observed', marker='o', linestyle='None', color='black')
             plt.plot(cycles[1:], model_predictions[col]['initial'], label=f'{col} Initial Model', linestyle='--', color='red')

@@ -14,6 +14,11 @@ Purpose:
 - Generate detailed reports in Debug mode.
 - Prepare data for the next cell.
 
+User-Editable Options:
+- ADJUST_BASELINE: Set to False to bypass all baseline adjustment (for pre-adjusted data).
+  When False, data passes through unchanged and adjustment_types are set to 'none'.
+- APPLY_BASELINE_TILT: When ADJUST_BASELINE=True, controls linear fallback behavior.
+
 Inputs:
 - df: DataFrame containing the qPCR fluorescence data (from Cell-2).
 - columns_to_fit: List of column names to process (from Cell-2).
@@ -38,7 +43,13 @@ import pandas as pd
 import datetime
 from scipy.stats import linregress
 
-# Baseline adjustment option:
+# ============ User-Editable Baseline Options ============
+# ADJUST_BASELINE: Set to False if providing pre-adjusted data (bypasses all baseline processing)
+# True  = apply baseline adjustment (default)
+# False = skip adjustment, pass data through unchanged
+ADJUST_BASELINE = True
+
+# APPLY_BASELINE_TILT: Only applies when ADJUST_BASELINE = True
 # True  = shift and tilt (level baseline by removing slope)
 # False = shift only (subtract intercept)
 APPLY_BASELINE_TILT = True
@@ -141,53 +152,67 @@ def estimate_background(data):
 df_adjusted = df.copy()
 initial_backgrounds = {}
 adjustment_types = {}
-
-# Apply background subtraction to extrapolate to 0.0 at cycle 0
 background_params = {}
-for col in columns_to_fit:
-    print(f"\nProcessing {col}...")
-    data = df[col].to_numpy()
-    background, adjustment_type, params = estimate_background(data)
-    initial_backgrounds[col] = background
-    adjustment_types[col] = adjustment_type
-    background_params[col] = {'background': background, 'adjustment_type': adjustment_type, **params}
-    if adjustment_type == 'exponential':
-        # Subtract the background (F(0)) to set cycle 0 to 0.0
-        df_adjusted[col] = df[col] - background
-    else:  # linear_shift or linear_tilt
-        all_cycles = np.arange(1, len(data) + 1)
-        if adjustment_type == 'linear_shift':
-            # Subtract the intercept to shift to 0.0 at cycle 0
-            df_adjusted[col] = df[col] - params['intercept']
-        else:  # linear_tilt
-            # Apply tilt correction and adjust to 0.0 at cycle 0
-            tilt_correction = params['slope'] * all_cycles + params['intercept']
-            df_adjusted[col] = df[col] - tilt_correction
-            early_adjusted = df_adjusted[col].iloc[1:1 + params['early_cycles']]  # Start at cycle 2
-            avg_early = np.mean(early_adjusted)
-            df_adjusted[col] -= avg_early  # Normalize early region to minimize offset
 
-print("Background correction method: General exponential fit F(c) = A * x^c + B, extrapolated to cycle 0 (dynamic linear fallback on failure)")
-print(f"Linear fallback mode: {'shift+tilt (level baseline)' if APPLY_BASELINE_TILT else 'shift only'}")
-print("All data adjusted to extrapolate to 0.0 at cycle 0.")
-print("Estimated background values and parameters (using cycles 2-6+, extended dynamically):")
-for col in columns_to_fit:
-    background = background_params[col]['background']
-    adj_type = background_params[col]['adjustment_type']
-    if adj_type == 'exponential':
-        A = background_params[col]['A']
-        x = background_params[col]['x']
-        B = background_params[col]['B']
-        cycles_used = background_params[col]['cycles']
-        param_str = f"A = {A:.6f}, Efficiency (x) = {x:.4f}, B = {B:.4f}, Cycles = {cycles_used}"
-    else:
-        slope = background_params[col]['slope']
-        intercept = background_params[col]['intercept']
-        cycles_used = background_params[col]['cycles']
-        param_str = f"Slope = {slope:.4f}, Intercept = {intercept:.4f}, Cycles = {cycles_used}"
-    print(f"{col}: Background = {background:.4f}, Type = {adj_type}, {param_str}")
+# Check if baseline adjustment should be applied
+if not ADJUST_BASELINE:
+    # Bypass mode: pass data through unchanged
+    print("=" * 60)
+    print("BASELINE ADJUSTMENT BYPASSED (ADJUST_BASELINE = False)")
+    print("Data passed through unchanged. Use this when providing pre-adjusted data.")
+    print("=" * 60)
+    for col in columns_to_fit:
+        initial_backgrounds[col] = 0.0  # No background estimated
+        adjustment_types[col] = 'none'  # Mark as no adjustment applied
+        background_params[col] = {'background': 0.0, 'adjustment_type': 'none'}
+    print(f"Processed {len(columns_to_fit)} columns with no baseline adjustment.")
 
-if debug_flag:
+else:
+    # Normal mode: Apply background subtraction to extrapolate to 0.0 at cycle 0
+    for col in columns_to_fit:
+        print(f"\nProcessing {col}...")
+        data = df[col].to_numpy()
+        background, adjustment_type, params = estimate_background(data)
+        initial_backgrounds[col] = background
+        adjustment_types[col] = adjustment_type
+        background_params[col] = {'background': background, 'adjustment_type': adjustment_type, **params}
+        if adjustment_type == 'exponential':
+            # Subtract the background (F(0)) to set cycle 0 to 0.0
+            df_adjusted[col] = df[col] - background
+        else:  # linear_shift or linear_tilt
+            all_cycles = np.arange(1, len(data) + 1)
+            if adjustment_type == 'linear_shift':
+                # Subtract the intercept to shift to 0.0 at cycle 0
+                df_adjusted[col] = df[col] - params['intercept']
+            else:  # linear_tilt
+                # Apply tilt correction and adjust to 0.0 at cycle 0
+                tilt_correction = params['slope'] * all_cycles + params['intercept']
+                df_adjusted[col] = df[col] - tilt_correction
+                early_adjusted = df_adjusted[col].iloc[1:1 + params['early_cycles']]  # Start at cycle 2
+                avg_early = np.mean(early_adjusted)
+                df_adjusted[col] -= avg_early  # Normalize early region to minimize offset
+
+    print("Background correction method: General exponential fit F(c) = A * x^c + B, extrapolated to cycle 0 (dynamic linear fallback on failure)")
+    print(f"Linear fallback mode: {'shift+tilt (level baseline)' if APPLY_BASELINE_TILT else 'shift only'}")
+    print("All data adjusted to extrapolate to 0.0 at cycle 0.")
+    print("Estimated background values and parameters (using cycles 2-6+, extended dynamically):")
+    for col in columns_to_fit:
+        background = background_params[col]['background']
+        adj_type = background_params[col]['adjustment_type']
+        if adj_type == 'exponential':
+            A = background_params[col]['A']
+            x = background_params[col]['x']
+            B = background_params[col]['B']
+            cycles_used = background_params[col]['cycles']
+            param_str = f"A = {A:.6f}, Efficiency (x) = {x:.4f}, B = {B:.4f}, Cycles = {cycles_used}"
+        else:
+            slope = background_params[col]['slope']
+            intercept = background_params[col]['intercept']
+            cycles_used = background_params[col]['cycles']
+            param_str = f"Slope = {slope:.4f}, Intercept = {intercept:.4f}, Cycles = {cycles_used}"
+        print(f"{col}: Background = {background:.4f}, Type = {adj_type}, {param_str}")
+
+if debug_flag and ADJUST_BASELINE:
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     input_base_name = os.path.basename(file_path).replace('.csv', '')
     log_path = os.path.join(output_dir, f'background_parameters--{input_base_name}--{timestamp}.txt')
@@ -311,7 +336,7 @@ def plot_adjusted_all_cycles(df_adjusted, columns, debug_flag=False, debug_displ
     else:
         plt.close()
 
-if columns_to_fit:
+if columns_to_fit and ADJUST_BASELINE:
     plot_original_vs_adjusted(
         df,
         df_adjusted,
@@ -329,8 +354,10 @@ if columns_to_fit:
         output_dir=output_dir,
         file_path=file_path
     )
-else:
+elif not columns_to_fit:
     print("No columns to plot.")
+elif not ADJUST_BASELINE:
+    print("Baseline adjustment bypassed - skipping adjustment plots.")
 
 # ============================================================================
 # SNR-Based Amplification Detection
